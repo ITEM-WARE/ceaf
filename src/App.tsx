@@ -25,7 +25,7 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
-          <Route path="create" element={role === 'admin' ? <ProfileForm /> : <Navigate to="/" />} />
+          <Route path="create" element={(role === 'admin' || role === 'adder') ? <ProfileForm /> : <Navigate to="/" />} />
           <Route path="edit/:id" element={role === 'admin' ? <ProfileForm /> : <Navigate to="/" />} />
           <Route path="profiles" element={<ProfileList />} />
           <Route path="profiles/:id" element={<ProfileDetail />} />

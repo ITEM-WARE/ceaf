@@ -247,7 +247,7 @@ export function ProfileDetail() {
             </button>
           </div>
         )}
-        {(role === 'read' || role === 'donor') && (
+        {(role === 'read' || role === 'donor' || role === 'adder') && (
           <div className="flex space-x-3">
             <button
               onClick={() => setShowDonationModal(true)}
@@ -541,6 +541,12 @@ export function ProfileDetail() {
                 <span className="text-slate-500">Created</span>
                 <span className="text-slate-900 font-medium">{profile.createdAt ? new Date(profile.createdAt).toLocaleString() : 'Unknown'}</span>
               </div>
+              {profile.addedByName && (
+                <div className="flex justify-between border-t border-slate-100 pt-3">
+                  <span className="text-slate-500">Added By</span>
+                  <span className="text-slate-900 font-medium">{profile.addedByName}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-500">Last Modified</span>
                 <span className="text-slate-900 font-medium">{profile.updatedAt ? new Date(profile.updatedAt).toLocaleString() : 'Unknown'}</span>

@@ -15,6 +15,12 @@ export interface DonorAccount {
   password: string;
 }
 
+export interface AdderAccount {
+  id: string;
+  name: string;
+  password: string;
+}
+
 export interface DonationRecord {
   id: string;
   donorName: string;
@@ -66,6 +72,8 @@ export interface Profile {
   
   createdAt: number;
   updatedAt: number;
+  addedBy?: string;
+  addedByName?: string;
 }
 
 export interface CustomFilter {
@@ -82,6 +90,7 @@ export interface Settings {
   readPassword?: string;
   appLogo?: string; // Base64 image
   donors?: DonorAccount[];
+  adders?: AdderAccount[];
   customFilters?: CustomFilter[];
 }
 

@@ -319,6 +319,10 @@ export function Settings() {
     control,
     name: "donors"
   });
+  const { fields: adderFields, append: appendAdder, remove: removeAdder } = useFieldArray({
+    control,
+    name: "adders"
+  });
   const { fields: filterFields, append: appendFilter, remove: removeFilter } = useFieldArray({
     control,
     name: "customFilters"
@@ -336,6 +340,7 @@ export function Settings() {
         ...settings,
         questions: settings.questions || [],
         donors: settings.donors || [],
+        adders: settings.adders || [],
         customFilters: settings.customFilters || []
       });
       if (settings.appLogo) {
@@ -603,6 +608,61 @@ export function Settings() {
           </div>
         </div>
 
+        {/* Adder Accounts Settings */}
+        <div className="space-y-6 border-b border-slate-200 pb-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-semibold text-slate-800">Adder Accounts</h3>
+            <button
+              type="button"
+              onClick={() => appendAdder({ id: 'adder_' + Date.now().toString(), name: '', password: '' })}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none transition-colors"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Adder
+            </button>
+          </div>
+          <p className="text-sm text-slate-500">Create accounts for staff/helpers. When they log in with their password, they can ONLY add new profiles and view existing ones, but cannot edit or delete anything.</p>
+          
+          <div className="space-y-4">
+            {adderFields.map((field, index) => (
+              <div key={field.id} className="flex items-center space-x-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Staff Name</label>
+                  <input
+                    type="text"
+                    {...register(`adders.${index}.name` as const, { required: true })}
+                    placeholder="e.g. Sarah Smith"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Password</label>
+                  <input
+                    type="text"
+                    {...register(`adders.${index}.password` as const, { required: true })}
+                    placeholder="Staff's login password"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div className="pt-5">
+                  <button
+                    type="button"
+                    onClick={() => removeAdder(index)}
+                    className="p-2 text-red-500 hover:text-red-700 rounded-md hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {adderFields.length === 0 && (
+              <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                <p className="text-slate-500 text-sm">No adder accounts created.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Custom Filters Settings */}
         <div className="space-y-6 border-b border-slate-200 pb-8">
           <div className="flex items-center justify-between">
@@ -667,7 +727,7 @@ export function Settings() {
                             <option value="No">No</option>
                           </select>
                         );
-                      } else if (parentType === 'select' && parentOptions) {
+                      } else if ((parentType === 'select' || parentType === 'range') && parentOptions) {
                         return (
                           <select
                             {...register(`customFilters.${index}.answer` as const, { required: true })}

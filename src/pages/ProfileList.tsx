@@ -4,7 +4,7 @@ import { useProfiles, deleteProfile, useSettings, updateProfile } from '../hooks
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, ArrowUpDown, Trash2, Edit, Eye, Download, User, AlertCircle, AlertTriangle, Filter, X, ListFilter, Heart } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { Profile, DonationRecord } from '../db';
+import { Profile, DonationRecord, CustomFilter } from '../db';
 
 type SortOption = 'score' | 'latest' | 'modified' | 'name' | 'applicationNumber';
 
@@ -12,13 +12,17 @@ export function ProfileList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('score');
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
+  const [minScore, setMinScore] = useState<string>('');
+  const [maxScore, setMaxScore] = useState<string>('');
+  const [dynamicFilters, setDynamicFilters] = useState<Record<string, string>>({});
   const [limit, setLimit] = useState<number>(0);
   const [activeCustomFilters, setActiveCustomFilters] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { role, donorName } = useAuth();
+  const { role, donorName, adderName } = useAuth();
   const [showMyDonations, setShowMyDonations] = useState(role === 'donor');
+  const [showOnlyMine, setShowOnlyMine] = useState(role === 'adder');
   
   // Donation Modal State
   const [donationModalProfile, setDonationModalProfile] = useState<Profile | null>(null);
@@ -43,16 +47,43 @@ export function ProfileList() {
     if (role === 'donor' && showMyDonations && donorName) {
       filtered = filtered.filter(p => p.donations?.some(d => d.donorName.toLowerCase() === donorName.toLowerCase()));
     }
+
+    // Apply Adder Filter
+    if (role === 'adder' && showOnlyMine && adderName) {
+      filtered = filtered.filter(p => p.addedByName === adderName);
+    }
     
     // Apply Search
     if (searchTerm) {
       const lowerTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(p => 
-        (p.name || '').toLowerCase().includes(lowerTerm) || 
-        (p.cnic || '').includes(searchTerm) ||
-        (p.applicationNumber || '').toLowerCase().includes(lowerTerm) ||
-        (p.phoneNumber || '').includes(searchTerm)
-      );
+      // Support comma separated search
+      const terms = lowerTerm.split(',').map(t => t.trim()).filter(Boolean);
+      
+      if (terms.length > 1) {
+        filtered = filtered.filter(p => 
+          terms.some(term => 
+            (p.name || '').toLowerCase().includes(term) || 
+            (p.cnic || '').includes(term) ||
+            (p.applicationNumber || '').toLowerCase().includes(term) ||
+            (p.phoneNumber || '').includes(term)
+          )
+        );
+      } else {
+        filtered = filtered.filter(p => 
+          (p.name || '').toLowerCase().includes(lowerTerm) || 
+          (p.cnic || '').includes(searchTerm) ||
+          (p.applicationNumber || '').toLowerCase().includes(lowerTerm) ||
+          (p.phoneNumber || '').includes(searchTerm)
+        );
+      }
+    }
+
+    // Apply Score Filters
+    if (minScore !== '') {
+      filtered = filtered.filter(p => (p.score || 0) >= Number(minScore));
+    }
+    if (maxScore !== '') {
+      filtered = filtered.filter(p => (p.score || 0) <= Number(maxScore));
     }
 
     // Apply District Filter
@@ -60,31 +91,63 @@ export function ProfileList() {
       filtered = filtered.filter(p => p.district === selectedDistrict);
     }
 
+    // Apply Dynamic Question Filters
+    const activeDynamicFilters = Object.entries(dynamicFilters).filter(([_, v]) => v !== '');
+    if (activeDynamicFilters.length > 0) {
+      filtered = filtered.filter(p => {
+        return activeDynamicFilters.every(([qId, targetValue]) => {
+          const answer = p.answers?.[qId];
+          const q = settings?.questions?.find(question => question.id === qId);
+          
+          if (!q) return true;
+          
+          if (q.type === 'range' && q.options) {
+            const selectedOption = q.options.find(opt => opt.label === targetValue);
+            if (!selectedOption) return true;
+            const numValue = Number(answer);
+            const min = (selectedOption.min === undefined || selectedOption.min === null || isNaN(selectedOption.min)) ? -Infinity : selectedOption.min;
+            const max = (selectedOption.max === undefined || selectedOption.max === null || isNaN(selectedOption.max)) ? Infinity : selectedOption.max;
+            return numValue >= min && numValue <= max;
+          }
+          
+          return String(answer) === targetValue;
+        });
+      });
+    }
+
     // Apply Active Custom Filters
     if (activeCustomFilters.length > 0 && settings?.customFilters) {
-      // Custom filters are generally treated as AND conditions (must match all active)
       filtered = filtered.filter(p => {
         return activeCustomFilters.every(filterId => {
           const filter = settings.customFilters?.find(f => f.id === filterId);
           if (!filter) return true;
           const answer = p.answers?.[filter.questionId];
-          const q = settings.questions?.find(q => q.id === filter.questionId);
+          const q = settings?.questions?.find(question => question.id === filter.questionId);
           
-          if (q?.type === 'boolean') {
-             return answer === (filter.answer === 'Yes');
+          if (q && q.type === 'range' && q.options) {
+            const selectedOption = q.options.find(opt => opt.label === filter.answer);
+            if (selectedOption) {
+              const numValue = Number(answer);
+              const min = (selectedOption.min === undefined || selectedOption.min === null || isNaN(selectedOption.min)) ? -Infinity : selectedOption.min;
+              const max = (selectedOption.max === undefined || selectedOption.max === null || isNaN(selectedOption.max)) ? Infinity : selectedOption.max;
+              return numValue >= min && numValue <= max;
+            }
           }
+          
           return String(answer) === String(filter.answer);
         });
       });
     }
 
-    // Sort
+    // Natural sort for sorting
     filtered.sort((a, b) => {
       if (sortBy === 'score') return (b.score || 0) - (a.score || 0);
       if (sortBy === 'latest') return (b.createdAt || 0) - (a.createdAt || 0);
       if (sortBy === 'modified') return (b.updatedAt || 0) - (a.updatedAt || 0);
       if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
-      if (sortBy === 'applicationNumber') return (a.applicationNumber || '').localeCompare(b.applicationNumber || '');
+      if (sortBy === 'applicationNumber') {
+        return (a.applicationNumber || '').localeCompare(b.applicationNumber || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
       return 0;
     });
 
@@ -223,6 +286,9 @@ export function ProfileList() {
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedDistrict('');
+    setMinScore('');
+    setMaxScore('');
+    setDynamicFilters({});
     setActiveCustomFilters([]);
     setLimit(0);
   };
@@ -258,7 +324,12 @@ export function ProfileList() {
     }
   };
 
-  const activeFilterCount = (selectedDistrict ? 1 : 0) + activeCustomFilters.length + (limit > 0 ? 1 : 0);
+  const activeFilterCount = (selectedDistrict ? 1 : 0) + 
+    activeCustomFilters.length + 
+    (limit > 0 ? 1 : 0) + 
+    (minScore ? 1 : 0) + 
+    (maxScore ? 1 : 0) +
+    Object.values(dynamicFilters).filter(v => v !== '').length;
 
   return (
     <motion.div 
@@ -281,6 +352,20 @@ export function ProfileList() {
               >
                 <Heart className="w-4 h-4 mr-2" />
                 {showMyDonations ? 'View All Profiles' : 'View My Donations'}
+              </button>
+            )}
+
+            {role === 'adder' && (
+              <button
+                onClick={() => setShowOnlyMine(!showOnlyMine)}
+                className={`inline-flex items-center px-4 py-2 border rounded-xl shadow-sm text-sm font-medium transition-all ${
+                  showOnlyMine 
+                    ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <User className="w-4 h-4 mr-2" />
+                {showOnlyMine ? 'Show All Profiles' : 'Show Only My Added'}
               </button>
             )}
 
@@ -397,6 +482,28 @@ export function ProfileList() {
                   </select>
                 </div>
 
+                {/* Score Filter */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Score Range</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={minScore}
+                      onChange={(e) => setMinScore(e.target.value)}
+                      className="w-full py-2 px-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all text-sm"
+                    />
+                    <span className="text-slate-400">-</span>
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={maxScore}
+                      onChange={(e) => setMaxScore(e.target.value)}
+                      className="w-full py-2 px-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all text-sm"
+                    />
+                  </div>
+                </div>
+
                 {/* Limit Filter */}
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Show Top N Cases</label>
@@ -413,6 +520,30 @@ export function ProfileList() {
                     <option value={200}>Top 200</option>
                   </select>
                 </div>
+
+                {/* Dynamic Question Filters */}
+                {settings?.questions?.filter(q => q.type === 'boolean' || q.type === 'select' || q.type === 'range').map(q => (
+                  <div key={q.id} className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider line-clamp-1">{q.text}</label>
+                    <select
+                      value={dynamicFilters[q.id] || ''}
+                      onChange={(e) => setDynamicFilters(prev => ({ ...prev, [q.id]: e.target.value }))}
+                      className="w-full py-2 pl-3 pr-8 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white transition-all text-sm"
+                    >
+                      <option value="">Any {q.text}</option>
+                      {q.type === 'boolean' ? (
+                        <>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </>
+                      ) : (
+                        q.options?.map((opt, i) => (
+                          <option key={i} value={opt.label}>{opt.label}</option>
+                        ))
+                      )}
+                    </select>
+                  </div>
+                ))}
               </div>
             </div>
           </motion.div>

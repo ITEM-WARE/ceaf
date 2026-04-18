@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Profile } from '../db';
 import { calculateScore } from '../scoring';
 import { useProfile, useSettings, addProfile, updateProfile } from '../hooks/useFirebase';
+import { useAuth } from '../hooks/useAuth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Save, ArrowLeft, Upload, X, AlertCircle } from 'lucide-react';
 import { compressImage } from '../utils/image';
@@ -26,6 +27,7 @@ export function ProfileForm() {
 
   const settings = useSettings();
   const profile = useProfile(id);
+  const { role, adderName } = useAuth();
 
   useEffect(() => {
     if (isEditing) {
@@ -156,6 +158,17 @@ export function ProfileForm() {
         updatedAt: Date.now(),
       };
 
+      if (!isEditing) {
+        profileToSave.createdAt = Date.now();
+        if (role === 'admin') {
+          profileToSave.addedBy = 'admin';
+          profileToSave.addedByName = 'Administrator';
+        } else if (role === 'adder' && adderName) {
+          profileToSave.addedBy = 'adder';
+          profileToSave.addedByName = adderName;
+        }
+      }
+
       // Remove any undefined values from the root object
       Object.keys(profileToSave).forEach(key => {
         if (profileToSave[key] === undefined) {
@@ -166,7 +179,6 @@ export function ProfileForm() {
       if (isEditing && id) {
         await updateProfile(id, profileToSave);
       } else {
-        profileToSave.createdAt = Date.now();
         await addProfile(profileToSave as Omit<Profile, 'id'>);
       }
 

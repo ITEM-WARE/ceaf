@@ -28,8 +28,8 @@ export function Home() {
         </p>
       </div>
 
-      <div className={`grid grid-cols-1 ${role === 'admin' ? 'md:grid-cols-2' : ''} gap-6`}>
-        {role === 'admin' && (
+      <div className={`grid grid-cols-1 ${(role === 'admin' || role === 'adder') ? 'md:grid-cols-2' : ''} gap-6`}>
+        {(role === 'admin' || role === 'adder') && (
           <Link
             to="/create"
             className="group relative rounded-2xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-md transition-all hover:border-emerald-500 flex flex-col items-center text-center space-y-4"
