@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Profile": {
+      "title": "Profile",
+      "description": "Applicant profile containing basic info, answers, and calculated score.",
+      "type": "object",
+      "properties": {
+        "applicationNumber": { "type": "string", "description": "Unique application number" },
+        "district": { "type": "string", "description": "District of the applicant" },
+        "name": { "type": "string", "description": "Applicant's full name" },
+        "fatherName": { "type": "string", "description": "Father's name" },
+        "cnic": { "type": "string", "description": "CNIC number" },
+        "address": { "type": "string", "description": "Home address" },
+        "phoneNumber": { "type": "string", "description": "Contact phone number" },
+        "professionOfOthers": { "type": "string", "description": "Profession of other household members" },
+        "profilePicture": { "type": "string", "description": "Base64 encoded profile picture" },
+        "comments": { "type": "string", "description": "Admin comments or summary" },
+        "answers": { "type": "object", "description": "Map of question IDs to answers" },
+        "conditionalAnswers": { "type": "object", "description": "Map of question IDs to conditional field answers" },
+        "score": { "type": "number", "description": "Total calculated score" },
+        "scoreBreakdown": { "type": "object", "description": "Breakdown of scores per question" },
+        "createdAt": { "type": "number", "description": "Creation timestamp" },
+        "updatedAt": { "type": "number", "description": "Last update timestamp" }
+      },
+      "required": ["applicationNumber", "name", "cnic", "score", "createdAt", "updatedAt"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global application settings including dynamic questions.",
+      "type": "object",
+      "properties": {
+        "questions": { "type": "array", "description": "List of form questions" },
+        "adminPassword": { "type": "string", "description": "Password for admin access" },
+        "readPassword": { "type": "string", "description": "Password for read-only access" },
+        "appLogo": { "type": "string", "description": "Base64 encoded app logo" }
+      }
+    }
+  },
+  "firestore": {
+    "/profiles/{profileId}": {
+      "schema": "Profile",
+      "description": "Collection of applicant profiles"
+    },
+    "/settings/global": {
+      "schema": "Settings",
+      "description": "Global settings document"
+    }
+  }
+}

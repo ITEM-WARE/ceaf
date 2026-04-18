@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: profiles
+    // Document ID: auto-generated
+    // Fields:
+    //   - applicationNumber: string (required)
+    //   - district: string
+    //   - name: string (required)
+    //   - fatherName: string
+    //   - cnic: string (required)
+    //   - address: string
+    //   - phoneNumber: string
+    //   - professionOfOthers: string
+    //   - profilePicture: string
+    //   - comments: string
+    //   - answers: map
+    //   - conditionalAnswers: map
+    //   - score: number (required)
+    //   - scoreBreakdown: map
+    //   - createdAt: number (required)
+    //   - updatedAt: number (required)
+    //
+    // Collection: settings
+    // Document ID: global
+    // Fields:
+    //   - questions: list
+    //   - adminPassword: string
+    //   - readPassword: string
+    //   - appLogo: string
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "emailforreplit69@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function hasRequiredProfileFields(data) {
+      return data.keys().hasAll(['applicationNumber', 'name', 'cnic', 'score', 'createdAt', 'updatedAt']);
+    }
+
+    function isValidProfile(data) {
+      return hasRequiredProfileFields(data) &&
+        data.applicationNumber is string &&
+        data.name is string && data.name.size() < 200 &&
+        data.cnic is string &&
+        data.score is number &&
+        data.createdAt is number &&
+        data.updatedAt is number;
+    }
+
+    function isValidSettings(data) {
+      return data.questions is list;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /profiles/{profileId} {
+      allow read, write: if true;
+    }
+
+    match /settings/global {
+      allow read, write: if true;
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
