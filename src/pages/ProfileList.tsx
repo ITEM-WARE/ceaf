@@ -14,9 +14,10 @@ export function ProfileList() {
   const [selectedDistrict, setSelectedDistrict] = useState<string>('');
   const [minScore, setMinScore] = useState<string>('');
   const [maxScore, setMaxScore] = useState<string>('');
-  const [dynamicFilters, setDynamicFilters] = useState<Record<string, string>>({});
   const [limit, setLimit] = useState<number>(0);
   const [activeCustomFilters, setActiveCustomFilters] = useState<string[]>([]);
+  const [filterOperator, setFilterOperator] = useState<'AND' | 'OR'>('OR');
+  const [dynamicFilters, setDynamicFilters] = useState<Record<string, string>>({});
   const [showFilters, setShowFilters] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -91,34 +92,11 @@ export function ProfileList() {
       filtered = filtered.filter(p => p.district === selectedDistrict);
     }
 
-    // Apply Dynamic Question Filters
-    const activeDynamicFilters = Object.entries(dynamicFilters).filter(([_, v]) => v !== '');
-    if (activeDynamicFilters.length > 0) {
-      filtered = filtered.filter(p => {
-        return activeDynamicFilters.every(([qId, targetValue]) => {
-          const answer = p.answers?.[qId];
-          const q = settings?.questions?.find(question => question.id === qId);
-          
-          if (!q) return true;
-          
-          if (q.type === 'range' && q.options) {
-            const selectedOption = q.options.find(opt => opt.label === targetValue);
-            if (!selectedOption) return true;
-            const numValue = Number(answer);
-            const min = (selectedOption.min === undefined || selectedOption.min === null || isNaN(selectedOption.min)) ? -Infinity : selectedOption.min;
-            const max = (selectedOption.max === undefined || selectedOption.max === null || isNaN(selectedOption.max)) ? Infinity : selectedOption.max;
-            return numValue >= min && numValue <= max;
-          }
-          
-          return String(answer) === targetValue;
-        });
-      });
-    }
-
-    // Apply Active Custom Filters
+    // Apply Active Custom Filters (Toggles)
     if (activeCustomFilters.length > 0 && settings?.customFilters) {
       filtered = filtered.filter(p => {
-        return activeCustomFilters.every(filterId => {
+        const matchFn = filterOperator === 'AND' ? 'every' : 'some';
+        return activeCustomFilters[matchFn](filterId => {
           const filter = settings.customFilters?.find(f => f.id === filterId);
           if (!filter) return true;
           const answer = p.answers?.[filter.questionId];
@@ -134,7 +112,44 @@ export function ProfileList() {
             }
           }
           
+          // Handle standard string vs boolean matches
+          if (q && q.type === 'boolean') {
+            const isYes = String(filter.answer).toLowerCase() === 'yes';
+            // true/false or "Yes"/"No"
+            const boolAnswer = typeof answer === 'boolean' ? answer : (String(answer).toLowerCase() === 'yes' || String(answer).toLowerCase() === 'true');
+            return boolAnswer === isYes;
+          }
+          
           return String(answer) === String(filter.answer);
+        });
+      });
+    }
+
+    // Apply Dynamic Custom Filters (Selects)
+    if (Object.keys(dynamicFilters).length > 0) {
+      filtered = filtered.filter(p => {
+        return Object.entries(dynamicFilters).every(([qId, targetValue]) => {
+          if (!targetValue) return true;
+          const answer = p.answers?.[qId];
+          const q = settings?.questions?.find(question => question.id === qId);
+          
+          if (q && q.type === 'range' && q.options) {
+            const selectedOption = q.options.find(opt => opt.label === targetValue);
+            if (selectedOption) {
+              const numValue = Number(answer);
+              const min = (selectedOption.min === undefined || selectedOption.min === null || isNaN(selectedOption.min)) ? -Infinity : selectedOption.min;
+              const max = (selectedOption.max === undefined || selectedOption.max === null || isNaN(selectedOption.max)) ? Infinity : selectedOption.max;
+              return numValue >= min && numValue <= max;
+            }
+          }
+          
+          if (q && q.type === 'boolean') {
+            const isYes = targetValue.toLowerCase() === 'yes';
+            const boolAnswer = typeof answer === 'boolean' ? answer : (String(answer).toLowerCase() === 'yes' || String(answer).toLowerCase() === 'true');
+            return boolAnswer === isYes;
+          }
+          
+          return String(answer) === targetValue;
         });
       });
     }
@@ -157,7 +172,7 @@ export function ProfileList() {
     }
 
     return filtered;
-  }, [allProfiles, searchTerm, sortBy, selectedDistrict, activeCustomFilters, limit, role, showMyDonations, donorName, settings]);
+  }, [allProfiles, searchTerm, sortBy, selectedDistrict, activeCustomFilters, filterOperator, dynamicFilters, limit, role, showMyDonations, donorName, settings, showOnlyMine, adderName, minScore, maxScore]);
 
   const handleDelete = async (id: string) => {
     if (deletingId === id) {
@@ -326,10 +341,10 @@ export function ProfileList() {
 
   const activeFilterCount = (selectedDistrict ? 1 : 0) + 
     activeCustomFilters.length + 
+    Object.values(dynamicFilters).filter(v => v !== '').length +
     (limit > 0 ? 1 : 0) + 
     (minScore ? 1 : 0) + 
-    (maxScore ? 1 : 0) +
-    Object.values(dynamicFilters).filter(v => v !== '').length;
+    (maxScore ? 1 : 0);
 
   return (
     <motion.div 
@@ -419,31 +434,6 @@ export function ProfileList() {
           </div>
       </div>
 
-      {settings?.customFilters && settings.customFilters.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {settings.customFilters.map(filter => {
-            const isActive = activeCustomFilters.includes(filter.id);
-            return (
-              <button
-                key={filter.id}
-                onClick={() => {
-                  setActiveCustomFilters(prev => 
-                    isActive ? prev.filter(id => id !== filter.id) : [...prev, filter.id]
-                  );
-                }}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                  isActive 
-                    ? 'bg-emerald-100 border-emerald-300 text-emerald-800 shadow-inner' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 shadow-sm'
-                }`}
-              >
-                {filter.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -521,30 +511,87 @@ export function ProfileList() {
                   </select>
                 </div>
 
-                {/* Dynamic Question Filters */}
-                {settings?.questions?.filter(q => q.type === 'boolean' || q.type === 'select' || q.type === 'range').map(q => (
-                  <div key={q.id} className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider line-clamp-1">{q.text}</label>
-                    <select
-                      value={dynamicFilters[q.id] || ''}
-                      onChange={(e) => setDynamicFilters(prev => ({ ...prev, [q.id]: e.target.value }))}
-                      className="w-full py-2 pl-3 pr-8 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white transition-all text-sm"
-                    >
-                      <option value="">Any {q.text}</option>
-                      {q.type === 'boolean' ? (
-                        <>
-                          <option value="Yes">Yes</option>
-                          <option value="No">No</option>
-                        </>
-                      ) : (
-                        q.options?.map((opt, i) => (
+                {/* Custom Dynamic Filters */}
+                {settings?.customFilters?.filter(f => f.mode === 'select').map(filter => {
+                  const q = settings.questions.find(q => q.id === filter.questionId);
+                  if (!q) return null;
+                  return (
+                    <div key={filter.id} className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{filter.label}</label>
+                      <select
+                        value={dynamicFilters[q.id] || ''}
+                        onChange={(e) => setDynamicFilters({ ...dynamicFilters, [q.id]: e.target.value })}
+                        className="w-full py-2 pl-3 pr-8 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white transition-all text-sm"
+                      >
+                        <option value="">All Answers</option>
+                        {q.type === 'boolean' ? (
+                          <>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </>
+                        ) : q.options?.map((opt, i) => (
                           <option key={i} value={opt.label}>{opt.label}</option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                ))}
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* Quick Toggle Buttons */}
+              {settings?.customFilters && settings.customFilters.some(f => f.mode !== 'select') && (
+                <div className="pt-4 border-t border-slate-100">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Toggles</label>
+                    <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
+                      <button
+                        onClick={() => setFilterOperator('OR')}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                          filterOperator === 'OR' 
+                            ? 'bg-white text-emerald-600 shadow-sm' 
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        MATCH ANY (OR)
+                      </button>
+                      <button
+                        onClick={() => setFilterOperator('AND')}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${
+                          filterOperator === 'AND' 
+                            ? 'bg-white text-emerald-600 shadow-sm' 
+                            : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        MATCH ALL (AND)
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {settings.customFilters
+                      .filter(filter => filter.mode !== 'select')
+                      .map(filter => {
+                        const isActive = activeCustomFilters.includes(filter.id);
+                        return (
+                          <button
+                            key={filter.id}
+                            onClick={() => {
+                              setActiveCustomFilters(prev => 
+                                isActive ? prev.filter(id => id !== filter.id) : [...prev, filter.id]
+                              );
+                            }}
+                            className={`px-6 py-2 rounded-xl text-sm font-semibold transition-all border ${
+                              isActive 
+                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-md scale-[1.02]' 
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white hover:border-emerald-300 shadow-sm'
+                            }`}
+                          >
+                            {filter.label}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

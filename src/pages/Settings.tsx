@@ -669,99 +669,121 @@ export function Settings() {
             <h3 className="text-xl font-semibold text-slate-800">Custom Quick Filters</h3>
             <button
               type="button"
-              onClick={() => appendFilter({ id: 'fil_' + Date.now().toString(), label: '', questionId: '', answer: '' })}
+              onClick={() => appendFilter({ id: 'fil_' + Date.now().toString(), label: '', questionId: '', mode: 'match', answer: '' })}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-emerald-700 bg-emerald-100 hover:bg-emerald-200 focus:outline-none transition-colors"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Filter Button
             </button>
           </div>
-          <p className="text-sm text-slate-500">Create quick-access filter buttons that appear on the View Profiles page to quickly filter by a specific question and answer.</p>
+          <p className="text-sm text-slate-500">Create custom filters that appear in the View Profiles section. You can make "Quick Match" buttons or "Selectable Answer" dropdowns.</p>
           
           <div className="space-y-4">
-            {filterFields.map((field, index) => (
-              <div key={field.id} className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Button Label</label>
-                  <input
-                    type="text"
-                    {...register(`customFilters.${index}.label` as const, { required: true })}
-                    placeholder="e.g. Needs Immediate Help"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Based on Question</label>
-                  <select
-                    {...register(`customFilters.${index}.questionId` as const, { required: true })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                  >
-                    <option value="">Select Question...</option>
-                    {fields.map((q: any, i: number) => {
-                      const logicalId = watch(`questions.${i}.id`);
-                      return (
-                        <option key={logicalId} value={logicalId}>
-                          {watch(`questions.${i}.text`) || 'Unnamed Question'}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Target Answer</label>
-                  {(() => {
-                    const selectedQId = watch(`customFilters.${index}.questionId`);
-                    const parentIdx = fields.findIndex((_, i) => watch(`questions.${i}.id`) === selectedQId);
-                    if (parentIdx !== -1) {
-                      const parentType = watch(`questions.${parentIdx}.type`);
-                      const parentOptions = watch(`questions.${parentIdx}.options`);
-                      
-                      if (parentType === 'boolean') {
+            {filterFields.map((field, index) => {
+              const filterMode = watch(`customFilters.${index}.mode`);
+              return (
+              <div key={field.id} className="flex flex-col gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Filter Label</label>
+                    <input
+                      type="text"
+                      {...register(`customFilters.${index}.label` as const, { required: true })}
+                      placeholder="e.g. Needs Immediate Help"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Filter Mode</label>
+                    <select
+                      {...register(`customFilters.${index}.mode` as const, { required: true })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                    >
+                      <option value="match">Quick Match (Toggle Button)</option>
+                      <option value="select">Select Answer (Dropdown)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Based on Question</label>
+                    <select
+                      {...register(`customFilters.${index}.questionId` as const, { required: true })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                    >
+                      <option value="">Select Question...</option>
+                      {fields.map((q: any, i: number) => {
+                        const logicalId = watch(`questions.${i}.id`);
                         return (
-                          <select
-                            {...register(`customFilters.${index}.answer` as const, { required: true })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                          >
-                            <option value="">Select Answer...</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                          </select>
+                          <option key={logicalId} value={logicalId}>
+                            {watch(`questions.${i}.text`) || 'Unnamed Question'}
+                          </option>
                         );
-                      } else if ((parentType === 'select' || parentType === 'range') && parentOptions) {
-                        return (
-                          <select
-                            {...register(`customFilters.${index}.answer` as const, { required: true })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                          >
-                            <option value="">Select Answer...</option>
-                            {parentOptions.map((opt: any, i: number) => (
-                              <option key={i} value={opt.label}>{opt.label}</option>
-                            ))}
-                          </select>
-                        );
-                      }
-                    }
-                    return (
-                      <input
-                        type="text"
-                        {...register(`customFilters.${index}.answer` as const, { required: true })}
-                        placeholder="Exact Answer Match"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
-                      />
-                    );
-                  })()}
+                      })}
+                    </select>
+                  </div>
                 </div>
-                <div className="pt-5 flex justify-end">
+
+                {filterMode === 'match' && (
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Target Answer to Match</label>
+                      {(() => {
+                        const selectedQId = watch(`customFilters.${index}.questionId`);
+                        const parentIdx = fields.findIndex((_, i) => watch(`questions.${i}.id`) === selectedQId);
+                        if (parentIdx !== -1) {
+                          const parentType = watch(`questions.${parentIdx}.type`);
+                          const parentOptions = watch(`questions.${parentIdx}.options`);
+                          
+                          if (parentType === 'boolean') {
+                            return (
+                              <select
+                                {...register(`customFilters.${index}.answer` as const, { required: true })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                              >
+                                <option value="">Select Answer...</option>
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                              </select>
+                            );
+                          } else if ((parentType === 'select' || parentType === 'range') && parentOptions) {
+                            return (
+                              <select
+                                {...register(`customFilters.${index}.answer` as const, { required: true })}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                              >
+                                <option value="">Select Answer...</option>
+                                {parentOptions.map((opt: any, i: number) => (
+                                  <option key={i} value={opt.label}>{opt.label}</option>
+                                ))}
+                              </select>
+                            );
+                          }
+                        }
+                        return (
+                          <input
+                            type="text"
+                            {...register(`customFilters.${index}.answer` as const, { required: true })}
+                            placeholder="Exact Answer Match"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500"
+                          />
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-end border-t border-slate-200 pt-3">
                   <button
                     type="button"
                     onClick={() => removeFilter(index)}
-                    className="p-2 text-red-500 hover:text-red-700 rounded-md hover:bg-red-50 transition-colors"
+                    className="inline-flex items-center text-xs font-medium text-red-500 hover:text-red-700 transition-colors"
                   >
-                    <Trash2 className="w-5 h-5" />
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Remove Filter
                   </button>
                 </div>
               </div>
-            ))}
+            );
+          })}
             {filterFields.length === 0 && (
               <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-300">
                 <p className="text-slate-500 text-sm">No custom quick filters created.</p>

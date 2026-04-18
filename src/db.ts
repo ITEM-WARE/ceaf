@@ -80,7 +80,8 @@ export interface CustomFilter {
   id: string;
   label: string;
   questionId: string;
-  answer: string;
+  answer?: string; // Only used for 'match' mode
+  mode: 'match' | 'select';
 }
 
 export interface Settings {
