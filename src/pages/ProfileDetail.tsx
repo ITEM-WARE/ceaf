@@ -130,7 +130,7 @@ export function ProfileDetail() {
                         <div key={don.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                           <div className="flex justify-between items-start mb-1">
                             <span className="font-bold text-slate-800">{don.donorName}</span>
-                            <span className="font-bold text-emerald-600">${don.amount}</span>
+                            <span className="font-bold text-emerald-600">PKR {don.amount}</span>
                           </div>
                           {don.description && <p className="text-sm text-slate-600 mt-1">{don.description}</p>}
                           <p className="text-xs text-slate-400 mt-2">{new Date(don.date).toLocaleDateString()}</p>
@@ -467,73 +467,106 @@ export function ProfileDetail() {
 
         </div>
 
-        {/* Right Column: Score */}
+        {/* Right Column: Score Breakdown Categories */}
         <div className="space-y-6">
-          <div className="bg-emerald-600 rounded-2xl shadow-lg overflow-hidden text-white">
-            <div className="px-6 py-8 text-center">
-              <p className="text-emerald-100 text-sm font-medium uppercase tracking-wider mb-2">Applicant Score</p>
-              <p className="text-6xl font-black">{profile.score || 0}</p>
-            </div>
-            <div className="bg-emerald-700 px-6 py-4">
-              <h4 className="text-sm font-semibold mb-3 text-emerald-100 border-b border-emerald-600 pb-2">Score Breakdown</h4>
-              <ul className="space-y-3 text-sm">
-                {Object.entries(profile.scoreBreakdown || {}).map(([key, value]) => {
-                  const q = settings?.questions?.find(q => q.text === key);
-                  let answerText = '';
-                  if (q) {
-                    let answer = profile.answers?.[q.id];
-                    if (answer === undefined) answer = (profile as any)[q.id];
-                    
-                    if (answer !== undefined && answer !== null && answer !== '') {
-                      answerText = String(answer);
+          {(() => {
+            const breakdown = profile.scoreBreakdown || {};
+            const positiveScores = Object.entries(breakdown).filter(([_, val]) => Number(val) > 0);
+            const zeroScores = Object.entries(breakdown).filter(([_, val]) => Number(val) <= 0);
 
-                      if (q.type === 'range' && q.options) {
-                        const numValue = Number(answer);
-                        const option = q.options.find(o => {
-                          const min = (o.min === undefined || o.min === null || isNaN(o.min)) ? -Infinity : o.min;
-                          const max = (o.max === undefined || o.max === null || isNaN(o.max)) ? Infinity : o.max;
-                          return numValue >= min && numValue <= max;
-                        });
-                        if (option) {
-                          answerText += ` (${option.label})`;
-                        }
-                      }
-                      
-                      // Add conditional answer if it exists
-                      if (q.hasConditionalField && q.conditionalTrigger === String(answer)) {
-                        let condAnswer = profile.conditionalAnswers?.[q.id];
-                        if (condAnswer === undefined) {
-                          if (q.id === 'governmentSupport') condAnswer = (profile as any).governmentSupportAmount;
-                          if (q.id === 'externalSupport') condAnswer = (profile as any).externalSupportAmount;
-                          if (q.id === 'debtForBasicNeeds') condAnswer = (profile as any).debtAmount;
-                          if (q.id === 'disabilityInHousehold') condAnswer = (profile as any).disabilityType;
-                          if (q.id === 'houseStatus') condAnswer = (profile as any).rentAmount;
-                        }
-                        if (condAnswer !== undefined && condAnswer !== null && condAnswer !== '') {
-                          answerText += ` (${condAnswer})`;
-                        }
-                      }
+            const renderScoreItem = ([key, value]: [string, any], isOrange: boolean) => {
+              const q = settings?.questions?.find(q => q.text === key);
+              let answerText = '';
+              if (q) {
+                let answer = profile.answers?.[q.id];
+                if (answer === undefined) answer = (profile as any)[q.id];
+                
+                if (answer !== undefined && answer !== null && answer !== '') {
+                  answerText = String(answer);
+
+                  if (q.type === 'range' && q.options) {
+                    const numValue = Number(answer);
+                    const option = q.options.find(o => {
+                      const min = (o.min === undefined || o.min === null || isNaN(o.min)) ? -Infinity : o.min;
+                      const max = (o.max === undefined || o.max === null || isNaN(o.max)) ? Infinity : o.max;
+                      return numValue >= min && numValue <= max;
+                    });
+                    if (option) answerText += ` (${option.label})`;
+                  }
+                  
+                  if (q.hasConditionalField && q.conditionalTrigger === String(answer)) {
+                    let condAnswer = profile.conditionalAnswers?.[q.id];
+                    if (condAnswer === undefined) {
+                      if (q.id === 'governmentSupport') condAnswer = (profile as any).governmentSupportAmount;
+                      if (q.id === 'externalSupport') condAnswer = (profile as any).externalSupportAmount;
+                      if (q.id === 'debtForBasicNeeds') condAnswer = (profile as any).debtAmount;
+                      if (q.id === 'disabilityInHousehold') condAnswer = (profile as any).disabilityType;
+                      if (q.id === 'houseStatus') condAnswer = (profile as any).rentAmount;
+                    }
+                    if (condAnswer !== undefined && condAnswer !== null && condAnswer !== '') {
+                      answerText += ` (${condAnswer})`;
                     }
                   }
+                }
+              }
 
-                  return (
-                    <li key={key} className="flex flex-col border-b border-emerald-600/50 pb-2 last:border-0 last:pb-0">
-                      <div className="flex justify-between items-start">
-                        <span className="text-emerald-100 pr-2">{key}</span>
-                        <span className="font-bold whitespace-nowrap">{Number(value) > 0 ? `+${value}` : value}</span>
-                      </div>
-                      {answerText && (
-                        <div className="mt-1.5 inline-block bg-emerald-800/40 text-emerald-50 px-2 py-1 rounded text-xs font-medium w-fit">
-                          Response: {answerText}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
+              const bgColorClass = isOrange ? 'bg-amber-800/40 text-amber-50' : 'bg-emerald-800/40 text-emerald-50';
+              const borderColorClass = isOrange ? 'border-amber-600/50' : 'border-emerald-600/50';
+              const labelColorClass = isOrange ? 'text-amber-100' : 'text-emerald-100';
 
+              return (
+                <li key={key} className={`flex flex-col border-b ${borderColorClass} pb-2 last:border-0 last:pb-0`}>
+                  <div className="flex justify-between items-start text-sm">
+                    <span className={`${labelColorClass} pr-2`}>{key}</span>
+                    <span className="font-bold whitespace-nowrap">{Number(value) > 0 ? `+${value}` : value}</span>
+                  </div>
+                  {answerText && (
+                    <div className={`mt-1.5 inline-block ${bgColorClass} px-2 py-1 rounded text-[10px] font-medium w-fit`}>
+                      Response: {answerText}
+                    </div>
+                  )}
+                </li>
+              );
+            };
+
+            return (
+              <div className="space-y-6">
+                {/* Points Awarded (Green Box) */}
+                <div className="bg-emerald-600 rounded-2xl shadow-lg overflow-hidden text-white transition-all duration-300">
+                  <div className="px-6 py-8 text-center border-b border-emerald-500/30">
+                    <p className="text-emerald-100 text-sm font-medium uppercase tracking-wider mb-2">Applicant Score</p>
+                    <p className="text-6xl font-black">{profile.score || 0}</p>
+                  </div>
+                  <div className="bg-emerald-700 px-6 py-4">
+                    <h4 className="text-sm font-semibold mb-3 border-b border-emerald-600 pb-2 text-emerald-100">Points Awarded</h4>
+                    {positiveScores.length > 0 ? (
+                      <ul className="space-y-3">
+                        {positiveScores.map(item => renderScoreItem(item, false))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-emerald-200 italic">No points awarded from criteria.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Zero Points (Orange Box) */}
+                <div className="bg-amber-600 rounded-2xl shadow-lg overflow-hidden text-white transition-all duration-300">
+                  <div className="bg-amber-700 px-6 py-4">
+                    <h4 className="text-sm font-semibold mb-3 border-b border-amber-500 pb-2 text-amber-100">Questions with 0 Points</h4>
+                    {zeroScores.length > 0 ? (
+                      <ul className="space-y-3">
+                        {zeroScores.map(item => renderScoreItem(item, true))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-amber-200 italic">All answers resulted in points.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Record Metadata */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
             <h4 className="text-sm font-medium text-slate-500 mb-4 uppercase tracking-wider">Record Metadata</h4>
             <div className="space-y-3 text-sm">

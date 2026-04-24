@@ -272,7 +272,7 @@ export function ProfileList() {
         });
 
         const totalDonations = p.donations?.reduce((sum, don) => sum + don.amount, 0) || 0;
-        const donorsList = p.donations?.map(don => `${don.donorName} ($${don.amount})`).join('; ') || '';
+        const donorsList = p.donations?.map(don => `${don.donorName} (PKR ${don.amount})`).join('; ') || '';
 
         return [
           p.applicationNumber, p.district, p.name, p.fatherName, p.cnic, p.address, p.phoneNumber, p.supportToSustainLivelihood, p.comments,
@@ -631,8 +631,16 @@ export function ProfileList() {
                       <p className="text-sm text-slate-500">{profile.cnic}</p>
                     </div>
                   </div>
-                  <div className="bg-emerald-100 text-emerald-800 text-xl font-black px-3 py-1 rounded-lg">
-                    {profile.score || 0}
+                  <div className="flex flex-col items-end space-y-2">
+                    <div className="bg-emerald-100 text-emerald-800 text-xl font-black px-3 py-1 rounded-lg border border-emerald-200" title="Applicant Score">
+                      {profile.score || 0}
+                    </div>
+                    {((profile.donations?.length || 0) > 0) && (
+                      <div className="bg-amber-100 text-amber-800 text-sm font-bold px-2 py-0.5 rounded-md border border-amber-200 flex items-center" title="Total Donations Received">
+                        <Heart className="w-3 h-3 mr-1 text-amber-600 fill-amber-600" />
+                        PKR {profile.donations?.reduce((sum, don) => sum + don.amount, 0) || 0}
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -717,7 +725,7 @@ export function ProfileList() {
                         <div key={don.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                           <div className="flex justify-between items-start mb-1">
                             <span className="font-bold text-slate-800">{don.donorName}</span>
-                            <span className="font-bold text-emerald-600">${don.amount}</span>
+                            <span className="font-bold text-emerald-600">PKR {don.amount}</span>
                           </div>
                           {don.description && <p className="text-sm text-slate-600 mt-1">{don.description}</p>}
                           <p className="text-xs text-slate-400 mt-2">{new Date(don.date).toLocaleDateString()}</p>
